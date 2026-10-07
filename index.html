@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>G25 Heatmap Engine</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f4f5f7;--card:#fff;--tx:#1b1f27;--mu:#667085;--bd:#dfe3ea;--map:#e8edf3;--ac:#2563eb}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1218;--card:#181c24;--tx:#e6e9ef;--mu:#8b93a3;--bd:#2a303b;--map:#10151d;--ac:#60a5fa}}
+:root[data-theme="dark"]{--bg:#0f1218;--card:#181c24;--tx:#e6e9ef;--mu:#8b93a3;--bd:#2a303b;--map:#10151d;--ac:#60a5fa}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{padding:12px 16px;display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px}
+h1{font-size:18px;margin:0}h2{font-size:13px;margin:0 0 8px;color:var(--mu);text-transform:uppercase;letter-spacing:.05em}
+.sub{color:var(--mu);font-size:12px}
+.grid{display:grid;grid-template-columns:300px 1fr;gap:12px;padding:0 12px 12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px}
+.side{display:flex;flex-direction:column;gap:10px}
+label{display:block;font-size:12px;color:var(--mu);margin:8px 0 3px}
+input[type=text],select,textarea{width:100%;background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;font:inherit}
+textarea{height:70px;font-size:11px}
+input[type=range]{width:100%}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
+input[type=color]{width:100%;height:30px;border:1px solid var(--bd);border-radius:6px;background:none;padding:2px}
+button{background:var(--ac);color:#fff;border:0;border-radius:6px;padding:6px 10px;cursor:pointer;font:inherit}
+button.alt{background:var(--bg);color:var(--tx);border:1px solid var(--bd)}
+.seg button{flex:1;background:var(--bg);color:var(--tx);border:1px solid var(--bd)}.seg button.on{background:var(--ac);color:#fff}
+.main{display:grid;gap:12px;min-width:0;grid-template-rows:minmax(440px,1fr) auto}
+.mc{padding:0;overflow:hidden;position:relative;display:flex;flex-direction:column}
+#map{flex:1;min-height:440px;width:100%;background:var(--map)}
+.st{position:absolute;left:10px;bottom:10px;z-index:1000;pointer-events:none;color:#fff;background:rgba(60,60,66,.84);border-radius:4px;padding:4px 8px;margin:0;font-size:11px}
+.lgd{position:absolute;top:10px;right:10px;z-index:1000;pointer-events:none;color:#fff;background:rgba(60,60,66,.84);border-radius:4px;padding:6px 8px;font-size:12px;display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+#bar{width:18px;height:120px;border-radius:2px;display:block}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cw{position:relative;height:320px}
+.tw{max-height:320px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--bd);white-space:nowrap}
+th{color:var(--mu);position:sticky;top:0;background:var(--card)}
+tr.m{cursor:pointer}tr.m:hover{background:var(--bg)}
+.pill{font-size:10px;padding:1px 6px;border-radius:9px;border:1px solid var(--bd)}
+.big{font-weight:600;font-variant-numeric:tabular-nums}
+.lbl{font-size:10px;color:var(--mu);white-space:nowrap;margin:-6px 0 0 8px;pointer-events:none;text-shadow:0 0 3px var(--bg)}
+.note{font-size:11px;color:var(--mu);margin-top:6px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.two{grid-template-columns:1fr}.main{grid-template-rows:none}#map{flex:none;height:60vh}}
+.leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-layer,.leaflet-tile-container{position:absolute;left:0;top:0}
+.leaflet-container{overflow:hidden;position:relative;outline:0}
+.leaflet-tile,.leaflet-marker-icon{user-select:none;-webkit-user-drag:none}
+.leaflet-tile{visibility:hidden}.leaflet-tile-loaded{visibility:inherit}
+.leaflet-pane{z-index:400}.leaflet-tile-pane{z-index:200}.leaflet-overlay-pane{z-index:400}.leaflet-marker-pane{z-index:600}
+.leaflet-pane>canvas,.leaflet-pane>svg{position:absolute;left:0;top:0}.leaflet-map-pane canvas{z-index:100}.leaflet-overlay-pane svg{position:absolute}
+.leaflet-top,.leaflet-bottom{position:absolute;z-index:1000;pointer-events:none}.leaflet-top{top:0}.leaflet-left{left:0}.leaflet-right{right:0}.leaflet-bottom{bottom:0}
+.leaflet-control{position:relative;z-index:800;pointer-events:auto;float:left;clear:both;margin:10px}
+.leaflet-zoom-animated{transform-origin:0 0}
+.leaflet-bar{border-radius:6px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.leaflet-bar a{display:block;width:30px;height:30px;line-height:30px;text-align:center;background:#fff;color:#111;text-decoration:none;font-weight:700;border-bottom:1px solid #ccc}
+.leaflet-container{cursor:grab}.leaflet-control-attribution{background:rgba(255,255,255,.7);color:#333;font-size:10px;padding:0 5px;margin:0}.leaflet-control-attribution a{color:#0b5cd5}.leaflet-bottom .leaflet-control{margin:0}
+</style></head><body>
+<header><h1>G25 Heatmap Engine</h1><span class="sub">25-D Euclidean distance · real time · click any label or table row to retarget</span></header>
+<div class="grid">
+ <div class="side">
+  <div class="card"><h2>Target & filters</h2>
+   <label>Search population / sample</label><input type="text" id="q" placeholder="e.g. Yamnaya, Finnish, Viking…">
+   <label>Target specimen</label><select id="target"></select>
+   <label>Era</label><div class="row seg" id="era"><button data-e="All" class="on">All</button><button data-e="Ancient">Ancient</button><button data-e="Modern">Modern</button></div>
+   <label>Max distance (blue end): <span class="big" id="dv">0.120</span></label>
+   <input type="range" id="thr" min="0" max="0.5" step="0.005" value="0.12">
+  </div>
+  <div class="card"><h2>Basemap (CARTO)</h2>
+   <label>API key</label><input type="password" id="ck" placeholder="Paste your CARTO API key" autocomplete="off">
+   <label>Style</label><select id="cs"><option value="dark_all">Dark</option><option value="light_all">Light</option><option value="voyager">Voyager</option></select>
+   <label>Tile URL template</label><input type="text" id="ct" value="https://basemaps.cartocdn.com/rastertiles/{style}/{z}/{x}/{y}.png?key={key}">
+   <div class="row" style="margin-top:8px"><button id="ckb">Apply</button><button class="alt" id="ckc">Clear</button></div>
+   <div class="note" id="kmsg">Enter your CARTO API key to load the basemap.</div>
+  </div>
+  <div class="card"><h2>Import G25 data</h2>
+   <input type="file" id="fil" accept=".csv,.txt,.tsv" multiple>
+   <label>…or paste rows</label>
+   <textarea id="imp" placeholder="Name,PC1,…,PC25  (26 fields, e.g. Japanese:Japanese_1,…)&#10;or Name,lat,lon,Ancient|Modern,PC1,…,PC25"></textarea>
+   <label>Era of these rows</label><select id="ie"><option value="Auto">Auto (guess from name)</option><option value="Modern">Modern</option><option value="Ancient">Ancient</option></select>
+   <label>Extra coordinates (optional): Population,lat,lon</label>
+   <textarea id="cin" placeholder="Karitiana,-9,-63&#10;Clovis_Anzick,46,-110.7"></textarea>
+   <div class="row" style="margin-top:6px"><button id="load">Add rows</button><button class="alt" id="rmsyn">Clear built-in data</button></div>
+   <div class="note" id="impmsg"></div>
+  </div>
+ </div>
+ <div class="main">
+  <div class="card mc"><div id="map"></div><div class="lgd"><b>Closer</b><span id="lmin"></span><i id="bar"></i><span id="lmax"></span><b>Farther</b></div><div class="note st" id="stat"></div></div>
+  <div class="two">
+   <div class="card"><h2>PCA · PC1 vs PC2</h2><div class="cw"><canvas id="pca"></canvas></div></div>
+   <div class="card"><h2>Top genetic matches</h2><div class="tw"><table><thead><tr><th>#</th><th>Sample</th><th>d</th><th>Era</th><th>Lat, Lon</th></tr></thead><tbody id="tb"></tbody></table></div></div>
+  </div>
+ </div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+
+// World geographic lookup for placing G25 population names onto coordinates
+const GEO=[
+ ["abazin",44,41.5],["abkhasian",43,41],["adygei",44.5,40],["agta",16.5,122],["aeta",15,120],["ahir",26,73],["akha",20,99],["akhvakh",42.3,46.5],["alawite",35,36],["albanian",41.3,20.1],["aleut",53,-168],["algerian",33,3],["altai",50.5,86],["ami",24,121],["andian",42.6,46.2],["anzick",46,-110.7,"A"],["arain",31.5,74.3],["armenian",40.2,44.5],["arora",30,72],["ashkenazi",50,20],["assyrian",36.5,43],["asur",23,85],["atayal",24.5,121],["australian",-25,134],["austrian",47.5,14.5],["avar",42.5,47],["aymara",-16.5,-68],["azeri",40.4,47.7],["balochi",28,65],["bantu",-5,25],["bashkir",54,56],["basque",43,-2],["bedouin",30,36],["belarusian",53.7,28],["bell_beaker",50,10,"A"],["bengali",23.8,90],["berber",31,-7],["biaka",3.5,17],["botai",53,68,"A"],["bulgarian",42.7,25],["burusho",36.3,74.7],["buryat",52,107],["cambodian",12.5,105],["chechen",43.3,45.7],["chipewyan",59,-108],["chuvash",55.5,47.5],["corded_ware",51,11,"A"],["croatian",45.1,15.2],["cypriot",35,33],["czech",49.8,15.5],["dai",22,100],["danish",56,10],["druze",33,35.8],["dutch",52,5],["egyptian",27,31],["ehg",63,34,"A"],["english",52.5,-1.5],["estonian",58.6,25],["evenk",60,110],["filipino",12,122],["finnish",62,26],["french",46.6,2.4],["fulani",12,-1],["gambian",13.4,-16],["georgian",42,43.5],["german",51,10],["greek",38,23.7],["gujarati",22.5,72],["hadza",-3.5,35],["han",35,113],["hausa",12,8],["hazara",34.5,66],["hungarian",47.2,19.5],["icelandic",64.9,-18.5],["igbo",6,7.5],["iranian",33,52],["iraqi",33,44],["irish",53.3,-8],["italian",43.4,11],["japanese",36,138],["jordanian",31,36],["kalash",35.7,71.5],["karitiana",-9,-63],["kazakh",48,68],["kenyan",0,38],["khanty",62,69],["khmer",12.5,105],["komi",62,55],["korean",36.5,128],["kurd",36,44],["kyrgyz",41.5,75],["latvian",56.9,24.6],["lebanese",33.9,35.8],["lithuanian",55.2,23.9],["maasai",-2,36],["malay",4,102],["malta",52.9,103.5,"A"],["mandenka",12.5,-12],["mansi",62,64],["maya",17,-90],["miao",27,108],["mongol",47,105],["moroccan",32,-6],["mycenaean",37.7,22.8,"A"],["natufian",32.7,35.2,"A"],["nenets",68,60],["norwegian",61,9],["orcadian",59,-3],["oromo",8,39],["ossetian",42.9,44.2],["pashtun",33,70],["persian",32,53],["peruvian",-9,-75],["polish",52,19],["portuguese",39.5,-8],["punjabi",31,74],["quechua",-13.5,-72],["roman",41.9,12.5,"A"],["romanian",45.9,25],["russian",56,38],["saami",68,24],["samaritan",32.2,35.3],["sardinian",40,9],["saudi",24,45],["scandi",58,15],["scot",56.5,-4],["scythian",48,38,"A"],["selkup",64,82],["serbian",44,21],["sicilian",37.5,14],["sintashta",53,60,"A"],["slovak",48.7,19.5],["somali",5,46],["spanish",40.4,-3.7],["sudanese",15,32],["surui",-11,-61],["swedish",60,15],["syrian",35,38],["tajik",38.5,70],["tamil",11,78.5],["tatar",55.8,49.1],["thai",15,101],["tibetan",30,91],["tunisian",34,9.5],["turkish",39,35],["turkmen",39,59],["tuvan",51.7,94],["udmurt",57,52.5],["ukrainian",49,31],["uyghur",41,85],["uzbek",41,64],["vietnamese",21,106],["viking",56,10,"A"],["welsh",52,-3.5],["whg",49.7,6.2,"A"],["yakut",62,129],["yamnaya",53,50,"A"],["yemeni",15.5,48],["yoruba",7.5,4],["zulu",-28.5,31]
+];
+
+const COORD={};
+function placeOf(pop){
+ const k=pop.toLowerCase();if(COORD[k])return COORD[k];
+ const tk=k.split(/[^a-z0-9']+/);let best=null,bl=0;
+ for(const g of GEO){const w=g[0];if((tk.includes(w)||(w.length>=4&&k.includes(w)))&&w.length>bl){best=g;bl=w.length}}
+ return best?[best[1],best[2],best[3]==="A"?"Ancient":"Modern"]:[45,15,"Modern"];
+}
+
+let DATA=[];
+
+// Real Global25 Scaled Dataset Rows (Samples from Eurogenes G25)
+const RAW_G25_DATA = `
+Abazin,0.1079895,0.07553,-0.0231456,-0.0175631,-0.0323136,0.0003835,0.0081666,-0.0031151,-0.0499037,-0.0222784,-0.0015832,0.0053015,-0.0179136,0.0037846,0.0010857,-0.0114026,0.0085728,-0.0037531,-0.0067406,0.0197125,0.009031,0.0006493,-0.0011861,-0.0064315,-0.0026044
+Abkhasian,0.1092703,0.1166731,-0.0478942,-0.0406621,-0.0389473,-0.0065696,0.0113851,-0.0063329,-0.0615163,-0.0222932,-0.0019306,0.0098744,-0.0243308,0.0046792,0.0023677,-0.0241902,0.0091268,-0.0054477,-0.0115082,0.0197316,0.0142802,0.0020472,0.0032456,-0.0090506,-0.0019426
+Adygei,0.1128114,0.1033583,-0.0297507,-0.0192364,-0.033442,-0.0020761,0.0091653,-0.0032051,-0.0516992,-0.0242171,0.0006857,0.0075267,-0.0201684,0.0045568,0.0052328,-0.0162349,0.0086777,-0.0046171,-0.0119692,0.0193566,0.0095666,0.000893,0.0026018,-0.0072564,-0.0028472
+Albanian,0.12224,0.1435906,0.0175658,-0.0157675,0.0263936,-0.0073392,0.0024984,0.0014696,0.0015071,0.0173125,-0.0008633,0.0035731,-0.0062399,0.0062836,-0.0193081,-0.002097,0.0119988,0.0005368,0.0073997,-0.0061839,-0.0080877,0.0014089,0.0028347,0.0033581,-0.0030316
+Algerian,-0.0680567,0.1327805,-0.0071652,-0.0677358,0.0212218,-0.0300737,-0.0221204,0.007442,0.0530313,0.0250954,0.0055076,-0.0061695,0.0208558,-0.0138598,0.0130235,-0.0101707,-0.0033574,-0.0164009,-0.0316446,0.0071597,-0.0096392,-0.0282908,0.0181892,-0.0002661,0.0012922
+Armenian,0.1030434,0.13632,-0.0593855,-0.061959,-0.0268828,-0.0173405,0.0042853,-0.0045201,-0.0281762,-0.0034302,0.0030473,0.0033323,-0.0027022,0.0025096,-0.0055247,-0.0017939,0.0009204,0.001319,0.0039485,-0.0044507,0.0002348,0.0040441,-0.0012615,-0.0002693,0.0012115
+Austrian,0.1290886,0.1350056,0.054394,0.032737,0.0347756,0.0125666,0.0072299,0.0062441,0.0028274,0.0027551,-0.0038781,0.0007847,-0.0012942,0.0027849,0.0005029,0.0036968,0.0002223,0.00079,0.0031793,0.0008385,-0.0009909,-0.0026548,0.0016675,0.0029627,-0.0010284
+Basque,0.130897,0.147252,0.057322,0.013566,0.053856,0.001394,-0.002585,0.002308,0.027611,0.032438,-0.006983,0.008692,-0.020218,-0.012386,0.015201,0.002387,-0.01017,0.002534,0.00088,-0.001126,0.008111,0.001237,-0.008011,-0.01217,-0.001437
+English,0.128822,0.136284,0.061734,0.046318,0.038161,0.017737,0.004113,0.005123,0.004745,0.005212,-0.005229,0.005515,-0.009187,-0.009468,0.016395,0.002943,-0.008292,0.002432,0.002816,0.001701,0.004168,0.003141,-0.00143,0.013375,0.00067
+Finnish,0.127863,0.106631,0.081458,0.071813,0.028723,0.022311,0.01081,0.013845,0.007363,-0.018224,0.008931,-0.008092,0.015163,0.012524,-0.008415,-0.005436,-0.008866,0.000507,-0.00088,0.002251,0.007611,0.000247,0.003451,0.006145,0.001676
+French,0.126343,0.140143,0.050157,0.030362,0.039084,0.011156,0.002585,0.004846,0.008385,0.013121,-0.00341,0.005245,-0.010852,-0.007569,0.008958,0.003447,-0.003781,0.001900,0.002137,0.000625,0.002745,0.002349,-0.002588,0.008555,0.000239
+Greek,0.119514,0.142174,0.006034,-0.026486,0.022158,-0.009761,0.00235,0.000462,-0.001227,0.018953,-0.000162,0.002248,-0.003865,0.003303,-0.014251,-0.003182,0.007432,0.000887,0.004022,-0.004127,-0.006239,0.001978,0.001479,0.002892,-0.001916
+Han,0.019236,-0.4500828,-0.047291,-0.0676685,0.1420265,0.0637265,-0.0055698,-0.0148841,-0.0225589,-0.0225791,0.0475472,0.0046758,-0.005545,-0.0019679,0.007234,0.0041103,-0.0033117,0.0049788,0.0085474,-0.0194093,0.0109056,-0.0281929,0.0025389,-0.0061091,-0.0541747
+Irish,0.131102,0.13405,0.063733,0.049419,0.038161,0.019522,0.003525,0.005538,0.003886,0.003462,-0.006333,0.006144,-0.012339,-0.012524,0.022937,0.004508,-0.010561,0.001900,0.000754,0.002126,0.005116,0.002102,-0.001233,0.015062,0.001317
+Japanese,0.018212,-0.448864,-0.045632,-0.066215,0.138488,0.06024,0.00376,-0.007384,-0.017793,-0.018406,0.036213,0.002698,-0.004014,-0.00234,0.006379,0.003845,-0.001956,0.003421,0.006034,-0.014132,0.008235,-0.022257,0.001356,-0.004338,-0.044187
+Norwegian,0.130897,0.12491,0.069767,0.057494,0.040931,0.021196,0.00658,0.008769,0.004704,0.000729,-0.005359,0.005545,-0.007433,-0.006744,0.016558,0.006364,-0.006258,0.001774,0.001885,0.003502,0.00549,0.002473,0.001109,0.013255,0.000838
+Russian_Smolensk,0.129758,0.117801,0.068259,0.057171,0.027082,0.020359,0.010105,0.011999,-0.001636,-0.023873,-0.002598,-0.008692,0.013082,0.018717,-0.011672,-0.003447,-0.002216,-0.000887,0.001508,0.001251,-0.003993,-0.002226,0.006656,-0.002169,0.000239
+Yamnaya_Samara,0.125547,0.089874,0.042615,0.115474,-0.029236,0.045459,0.00329,-0.002538,-0.054403,-0.072895,-0.001949,-0.000749,-0.002527,-0.02491,0.036644,0.015248,-0.006128,-0.003547,-0.003268,0.00075,-0.003868,-0.001237,0.010846,0.017713,-0.000958
+Sintashta,0.126343,0.108662,0.053174,0.082688,-0.010771,0.031515,0.004935,0.003461,-0.028429,-0.045559,-0.003735,-0.002098,-0.001784,-0.018854,0.026737,0.010607,-0.00665,-0.000633,-0.001257,0.000875,-0.003119,-0.001855,0.007642,0.010363,0.000359
+Corded_Ware_Germany,0.12862,0.107646,0.064865,0.083334,-0.000923,0.03263,0.006815,0.007846,-0.019225,-0.038452,-0.003573,-0.002098,-0.002527,-0.016377,0.025244,0.010342,-0.00691,-0.000887,-0.001131,0.002001,-0.002496,-0.000742,0.007149,0.011688,0.000479
+Bell_Beaker_Iberia,0.126343,0.144205,0.042238,0.002584,0.046162,-0.003626,-0.002115,0.001846,0.027406,0.03098,0.000325,0.007194,-0.017839,-0.012524,0.009093,0.002387,-0.007823,0.001267,0.001383,-0.002626,0.004243,0.00136,0.000123,-0.007832,-0.001437
+WHG_Loschbour,0.124067,0.116786,0.187805,0.187341,0.155413,0.058008,0.014336,0.017538,0.089172,0.016037,-0.015265,-0.016336,0.021704,-0.006331,-0.051438,-0.046274,0.010039,0.002027,-0.005154,-0.003001,0.085818,0.008408,-0.03833,0.116644,-0.010298
+EHG_Karelia,0.122929,0.05687,0.108233,0.190895,-0.076014,0.052432,-0.00705,-0.009231,-0.075468,-0.101141,0.007145,-0.013188,0.020515,-0.046379,0.040716,0.029833,-0.002999,-0.006081,-0.00993,0.006753,0.000125,-0.008037,0.015406,0.02422,-0.003353
+`;
+
+function parseRawData(text){
+ text.split(/\r?\n/).forEach(l=>{
+  const p=l.trim().split(/[,\t;]+/);
+  if(p.length<26)return;
+  const nm=p[0];
+  const pop=nm.split(":")[0];
+  const pl=placeOf(pop);
+  const v=p.slice(1,26).map(Number);
+  if(v.length===25 && !v.some(isNaN)){
+   DATA.push({
+    id: nm,
+    pop: pop,
+    lat: pl[0],
+    lon: pl[1],
+    era: pl[2]||"Modern",
+    v: v
+   });
+  }
+ });
+}
+
+parseRawData(RAW_G25_DATA);
+
+function dist(a,b){let s=0;for(let i=0;i<25;i++){const d=a[i]-b[i];s+=d*d}return Math.sqrt(s)}
+
+// map initialization
+const map=L.map("map",{preferCanvas:true,minZoom:2,worldCopyJump:false}).setView([48,22],4);
+let tiles=null;
+function store(k,v){try{v===undefined?(localStorage.getItem(k)||""):localStorage.setItem(k,v)}catch(e){}}
+function getS(k){try{return localStorage.getItem(k)||""}catch(e){return""}}
+function setTiles(){
+ const key=$("ck").value.trim(),tpl=$("ct").value.trim(),st=$("cs").value;
+ store("g25_ck2",key);store("g25_ct2",tpl);store("g25_cs2",st);
+ if(tiles){map.removeLayer(tiles);tiles=null}
+ if(!key){$("kmsg").textContent="Enter your CARTO API key to load the basemap.";return}
+ const url=tpl.replace("{style}",st).replace("{key}",encodeURIComponent(key));
+ let err=0;
+ tiles=L.tileLayer(url,{maxZoom:19,attribution:"&copy; OpenStreetMap &copy; CARTO"}).addTo(map);
+ tiles.on("tileerror",()=>{if(!err++)$("kmsg").textContent="Tiles failed to load: check the key or URL template."});
+ tiles.on("tileload",()=>{$("kmsg").textContent="Tiles loaded successfully."});
+ $("kmsg").textContent="Loading tiles…";
+}
+new ResizeObserver(()=>map.invalidateSize()).observe($("map"));setTimeout(()=>map.invalidateSize(),50);
+const lg=L.layerGroup().addTo(map);let tm=null;
+const heat=L.heatLayer([],{radius:30,blur:24,max:1,minOpacity:.25,maxZoom:7,gradient:{.2:"#3b82f6",.55:"#facc15",1:"#ef4444"}}).addTo(map);
+$("bar").style.background="linear-gradient(to bottom,#ef4444,#facc15 55%,#3b82f6)";
+const dg=L.layerGroup().addTo(map);
+
+function labels(){
+ lg.clearLayers();if(map.getZoom()<5)return;const bd=map.getBounds().pad(.2),seen={};
+ filtered().forEach(d=>{if(seen[d.pop]||!bd.contains([d.lat,d.lon]))return;seen[d.pop]=1;L.marker([d.lat,d.lon],{icon:L.divIcon({className:"lbl",html:d.pop.replace(/_/g," "),iconSize:[0,0]}),interactive:false}).addTo(lg)});
+}
+map.on("moveend",labels);
+
+let era="All";
+$("era").onclick=e=>{const b=e.target.closest("button");if(!b)return;era=b.dataset.e;[...$("era").children].forEach(x=>x.classList.toggle("on",x===b));refresh(true)};
+
+function filtered(){const q=$("q").value.trim().toLowerCase();return DATA.filter(d=>(era==="All"||d.era===era)&&(!q||d.id.toLowerCase().includes(q)))}
+
+function buildSel(){
+ const f=filtered(),cur=$("target").value;$("target").innerHTML=f.map(d=>`<option value="${d.id}">${d.id}</option>`).join("");
+ if(f.some(d=>d.id===cur))$("target").value=cur;else if(f.length)$("target").value=f[0].id;
+}
+
+let chart;
+function refresh(rebuild){
+ if(rebuild)buildSel();
+ const t=DATA.find(d=>d.id===$("target").value);
+ if(!t){$("tb").innerHTML="";heat.setLatLngs([]);if(chart){chart.data.datasets=[];chart.update()}$("stat").textContent="No data loaded.";return}
+ const thr=+$("thr").value;$("dv").textContent=thr.toFixed(3);
+ const f=filtered().filter(d=>d!==t).map(d=>({d,x:dist(t.v,d.v)})).sort((a,b)=>a.x-b.x);
+ const within=f.filter(o=>o.x<=thr);
+ heat.setLatLngs(within.map(o=>[o.d.lat,o.d.lon,Math.max(.05,1-o.x/Math.max(thr,1e-6))]));
+ $("lmin").textContent=f.length?f[0].x.toFixed(3):"0";$("lmax").textContent=thr.toFixed(3);
+ 
+ const key=era+"|"+$("q").value+"|"+DATA.length;
+ if(key!==refresh.k){
+  refresh.k=key;dg.clearLayers();
+  filtered().forEach(d=>{L.circleMarker([d.lat,d.lon],{radius:2.5,color:"#222",weight:.6,fillColor:"#fff",fillOpacity:.9}).on("click",()=>{$("target").value=d.id;refresh()}).addTo(dg)});
+  labels();
+ }
+ 
+ if(tm)map.removeLayer(tm);
+ tm=L.circleMarker([t.lat,t.lon],{radius:7,color:"#fff",weight:2,fillColor:"#000",fillOpacity:1}).addTo(map);
+ $("stat").textContent=`Target ${t.id} · ${within.length} of ${f.length} samples within d ≤ ${thr.toFixed(3)}`;
+ $("tb").innerHTML=f.slice(0,15).map((o,i)=>`<tr class="m" data-id="${o.d.id}"><td>${i+1}</td><td>${o.d.id}</td><td class="big">${o.x.toFixed(4)}</td><td><span class="pill">${o.d.era}</span></td><td>${o.d.lat.toFixed(1)}, ${o.d.lon.toFixed(1)}</td></tr>`).join("");
+ 
+ const near=f.slice(0,90),pts=e=>near.filter(o=>o.d.era===e).map(o=>({x:o.d.v[0],y:o.d.v[1],l:`${o.d.id} (d=${o.x.toFixed(3)})`}));
+ const ds=[
+  {label:"Ancient",data:pts("Ancient"),backgroundColor:"#f59e0b",pointRadius:4},
+  {label:"Modern",data:pts("Modern"),backgroundColor:"#38bdf8",pointRadius:4},
+  {label:"Target",data:[{x:t.v[0],y:t.v[1],l:t.id}],backgroundColor:"#ef4444",borderColor:"#fff",borderWidth:2,pointRadius:9,pointStyle:"star"}
+ ];
+ 
+ if(!chart)chart=new Chart($("pca"),{type:"scatter",data:{datasets:ds},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{tooltip:{callbacks:{label:c=>c.raw.l}},legend:{labels:{color:"#8b93a3"}}},scales:{x:{title:{display:true,text:"PC1",color:"#8b93a3"},ticks:{color:"#8b93a3"}},y:{title:{display:true,text:"PC2",color:"#8b93a3"},ticks:{color:"#8b93a3"}}}}});
+ else{chart.data.datasets=ds;chart.update()}
+}
+
+$("q").oninput=()=>refresh(true);
+$("target").onchange=()=>refresh();
+$("thr").oninput=()=>refresh();
+$("tb").onclick=e=>{
+ const r=e.target.closest("tr");if(!r)return;
+ const id=r.dataset.id;$("q").value="";era="All";
+ [...$("era").children].forEach(x=>x.classList.toggle("on",x.dataset.e==="All"));
+ buildSel();$("target").value=id;refresh();
+ const targetItem = DATA.find(d=>d.id===id);
+ if(targetItem) map.panTo([targetItem.lat,targetItem.lon]);
+};
+
+function ingest(text,fixedEra){
+ let ok=0,bad=0;const miss=new Set();
+ text.split(/\r?\n/).forEach(l=>{
+  const p=l.trim().replace(/"/g,"").split(/[,\t;]+/);
+  if(p.length<26)return;
+  const nm=p[0];let la,lo,er,v;
+  if(p.length>=30){la=+p[1];lo=+p[2];er=/^a/i.test(p[3])?"Ancient":"Modern";v=p.slice(4,29).map(Number)}
+  else{const pop=nm.split(":")[0],pl=placeOf(pop);v=p.slice(1,26).map(Number);if(v.some(isNaN)){return}if(!pl){miss.add(pop);bad++;return}la=pl[0];lo=pl[1];er=fixedEra!=="Auto"?fixedEra:(pl[2]||"Modern")}
+  if(v.length!==25||v.some(isNaN)||isNaN(la)||isNaN(lo)){bad++;return}
+  DATA.push({id:nm,pop:nm.split(":")[0],lat:la,lon:lo,era:er,v});ok++
+ });
+ return{ok,bad,miss:[...miss]}
+}
+
+function runImport(extra){
+ $("cin").value.split(/\r?\n/).forEach(l=>{
+  const p=l.trim().split(/[,\t;]+/);
+  if(p.length>=3&&!isNaN(+p[1])&&!isNaN(+p[2]))COORD[p[0].toLowerCase()]=[+p[1],+p[2],p[3]?(/^a/i.test(p[3])?"Ancient":"Modern"):null]
+ });
+ const r=ingest(extra,$("ie").value);
+ $("impmsg").textContent=`${r.ok} rows added`+(r.bad?`, ${r.bad} skipped`:"")+(r.miss.length?`. Unplaced populations: ${r.miss.slice(0,40).join(", ")}`:"");
+ refresh(true);
+}
+
+$("load").onclick=()=>{runImport($("imp").value)};
+$("fil").onchange=async e=>{let t="";for(const f of e.target.files)t+=await f.text()+"\n";$("imp").value=t.length>200000?"":t;runImport(t)};
+$("rmsyn").onclick=()=>{DATA=[];lg.clearLayers();$("impmsg").textContent="Built-in sample data cleared.";refresh(true)};
+
+$("ck").value=getS("g25_ck2");
+if(getS("g25_ct2"))$("ct").value=getS("g25_ct2");
+if(getS("g25_cs2"))$("cs").value=getS("g25_cs2");
+$("ckb").onclick=setTiles;$("cs").onchange=setTiles;$("ck").onkeydown=e=>{if(e.key==="Enter")setTiles()};
+$("ckc").onclick=()=>{$("ck").value="";setTiles()};
+if($("ck").value)setTiles();
+
+labels();buildSel();
+if(DATA.length>0) $("target").value=DATA[0].id;
+refresh();
+</script></body></html>
